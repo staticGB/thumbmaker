@@ -6,7 +6,7 @@
 <title>Thumbmaker - YouTube thumbnail studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Oswald:wght@700&family=Montserrat:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Montserrat:wght@800;900&family=Nosifer&family=Oswald:wght@500;700&family=Rubik+Wet+Paint&family=Titan+One&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -103,17 +103,7 @@ select{cursor:pointer}
       <h3>Selected text</h3>
       <textarea id="textInput" rows="2" placeholder="Type your headline here"></textarea>
       <div class="row" style="margin-top:6px">
-        <select id="fontSel">
-          <option value="Anton">Anton</option>
-          <option value="Archivo Black">Archivo Black</option>
-          <option value="Bebas Neue">Bebas Neue</option>
-          <option value="Oswald">Oswald</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Arial Black">Arial Black</option>
-          <option value="Impact">Impact</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Trebuchet MS">Trebuchet</option>
-        </select>
+        <select id="fontSel" title="Font"></select>
       </div>
       <div class="row" style="margin-top:6px">
         <label class="ctl"><input type="checkbox" id="upperChk"> CAPS</label>
@@ -127,6 +117,10 @@ select{cursor:pointer}
         <label class="ctl">Outline <input type="color" id="strokeColor" value="#000000"></label>
       </div>
       <label class="ctl">Outline <input type="range" id="strokeW" min="0" max="40" value="10"><span class="v" id="strokeWVal">10</span></label>
+      <div class="row">
+        <label class="ctl">3D colour <input type="color" id="depthColor" value="#2f6b00"></label>
+      </div>
+      <label class="ctl">3D depth <input type="range" id="depthR" min="0" max="40" value="0"><span class="v" id="depthVal">0</span></label>
       <label class="ctl">Drop shadow <input type="range" id="shadowR" min="0" max="90" value="0"><span class="v" id="shadowVal">0</span></label>
       <label class="ctl">Opacity <input type="range" id="opacityR" min="10" max="100" value="100"><span class="v" id="opacityVal">100</span></label>
       <div class="row" style="margin-top:8px">
@@ -154,6 +148,7 @@ select{cursor:pointer}
         <button class="btn" data-tpl="topbottom">Top + bottom</button>
         <button class="btn" data-tpl="left">Left block</button>
         <button class="btn" data-tpl="centre">Giant centre</button>
+        <button class="btn" data-tpl="slime">Slime style</button>
       </div>
     </section>
   </aside>
@@ -166,7 +161,23 @@ select{cursor:pointer}
 // ============ CONSTANTS ============
 var W = 1280, H = 720;          // document size = YouTube thumbnail size
 var Q = 2;                        // editor always renders at 2x for crisp text
-var FONTS = ['Anton','Archivo Black','Bebas Neue','Oswald','Montserrat','Arial Black','Impact','Georgia','Trebuchet MS'];
+var FONTS = [
+  { k:'Anton',                  family:'Anton',           weight:400 },
+  { k:'Bebas Neue',             family:'Bebas Neue',      weight:400 },
+  { k:'Montserrat ExtraBold',   family:'Montserrat',      weight:800 },
+  { k:'Montserrat Black',       family:'Montserrat',      weight:900 },
+  { k:'Archivo Black',          family:'Archivo Black',   weight:400 },
+  { k:'Oswald Bold',            family:'Oswald',          weight:700 },
+  { k:'Titan One (gooey)',      family:'Titan One',       weight:400 },
+  { k:'Rubik Wet Paint (drip)', family:'Rubik Wet Paint', weight:400 },
+  { k:'Nosifer (drip)',         family:'Nosifer',         weight:400 },
+  { k:'Impact',                 family:'Impact',          weight:400 },
+  { k:'Arial Black',            family:'Arial Black',     weight:400 },
+  { k:'Georgia',                family:'Georgia',         weight:700 },
+  { k:'Trebuchet MS',           family:'Trebuchet MS',    weight:700 }
+];
+var FONT_MAP = {};
+FONTS.forEach(function(f){ FONT_MAP[f.k] = f; });
 
 // ============ DOM ============
 var $ = function(id){ return document.getElementById(id); };
@@ -177,6 +188,7 @@ var bgFit = $('bgFit'), bgZoom = $('bgZoom'), bgZoomVal = $('bgZoomVal'), scrim 
 var textSec = $('textSec'), textInput = $('textInput'), fontSel = $('fontSel'), upperChk = $('upperChk'), alignBtn = $('alignBtn');
 var sizeRange = $('sizeRange'), sizeVal = $('sizeVal'), angleRange = $('angleRange'), angleVal = $('angleVal'), lhRange = $('lhRange'), lhVal = $('lhVal');
 var fillColor = $('fillColor'), strokeColor = $('strokeColor'), strokeW = $('strokeW'), strokeWVal = $('strokeWVal'), shadowR = $('shadowR'), shadowVal = $('shadowVal'), opacityR = $('opacityR'), opacityVal = $('opacityVal');
+var depthR = $('depthR'), depthVal = $('depthVal'), depthColor = $('depthColor');
 var dupBtn = $('dupBtn'), delBtn = $('delBtn'), layerList = $('layerList'), layerCount = $('layerCount');
 var imgScale = $('imgScale'), imgScaleVal = $('imgScaleVal'), imgAngle = $('imgAngle'), imgAngleVal = $('imgAngleVal'), imgOpacity = $('imgOpacity'), imgOpacityVal = $('imgOpacityVal');
 var undoBtn = $('undoBtn'), redoBtn = $('redoBtn'), guidesBtn = $('guidesBtn'), saveBtn = $('saveBtn'), drop = $('drop');
@@ -206,7 +218,8 @@ function fitCanvas(){
 window.addEventListener('resize', fitCanvas);
 function devK(){ return cv.width / W; }        // doc -> device pixels
 function fontStr(it){
-  return (it.italic ? 'italic ' : '') + 'normal ' + Math.round(it.size) + 'px "' + it.font + '", "Arial Black", sans-serif';
+  var f = FONT_MAP[it.font] || { family: it.font, weight: 400 };
+  return (it.italic ? 'italic ' : '') + (f.weight || 400) + ' ' + Math.round(it.size) + 'px "' + f.family + '", "Arial Black", sans-serif';
 }
 function linesOf(it){
   var t = it.upper ? String(it.text).toUpperCase() : String(it.text);
@@ -297,21 +310,45 @@ function drawItem(c, it){
     var lh = it.size * (it.lh || 1);
     c.lineJoin = 'round';
     c.miterLimit = 2;
+    // 1. shadow, painted once for the whole item in its own isolated state
+    if (it.shadow > 0){
+      c.save();
+      c.fillStyle = it.fillCol;
+      c.shadowColor = 'rgba(0,0,0,' + (it.shadow/100) + ')';
+      c.shadowBlur = it.size * 0.30;
+      c.shadowOffsetY = it.size * 0.07;
+      c.shadowOffsetX = 0;
+      for (var si=0; si<lines.length; si++) c.fillText(lines[si], 0, (si - (lines.length-1)/2) * lh);
+      c.restore();
+    }
     for (var i=0;i<lines.length;i++){
       var y = (i - (lines.length-1)/2) * lh;
-      if (it.shadow > 0){
-        c.shadowColor = 'rgba(0,0,0,' + (it.shadow/100) + ')';
-        c.shadowBlur = it.size * 0.30;
-        c.shadowOffsetY = it.size * 0.07;
+      // 2. chunky 3D body: stacked offset copies behind the letter
+      if (it.depth > 0){
+        // body drawn in whole device-pixel steps: sub-pixel copies leave visible seams
+        c.fillStyle = it.depthCol || '#2f6b00';
+        var kk = 1;
+        try { kk = (c.getTransform && c.getTransform().a) || 1; } catch (err) { kk = 1; }
+        if (!kk || kk <= 0) kk = 1;
+        var unit = 1 / kk;
+        var nsteps = Math.max(1, Math.min(120, Math.round(it.depth * kk)));
+        // straight down: a diagonal stack leaves stepped edges, a vertical one does not
+        for (var dp = nsteps; dp >= 1; dp--){
+          c.fillText(lines[i], 0, y + dp*unit);
+        }
       }
+      // 3. outline
       if (it.strokeW > 0 && it.strokeCol){
         c.strokeStyle = it.strokeCol;
         c.lineWidth = it.strokeW;
         c.strokeText(lines[i], 0, y);
       }
-      c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0;
+      // 4. the face on top (no shadow here, it was painted in step 1)
+      c.save();
+      c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0; c.shadowOffsetX = 0;
       c.fillStyle = it.fillCol;
       c.fillText(lines[i], 0, y);
+      c.restore();
     }
   } else if (it.type === 'img'){
     var img = images[it.imgId];
@@ -589,11 +626,12 @@ window.addEventListener('paste', function(e){
 });
 
 // ============ TEXT ============
-function addText(text){
+function addText(text, placeholder){
   snap();
   var it = { id:newId(), type:'text', text: text || 'HEADLINE', font:'Anton', size:130, lh:1, angle:0,
              align:'center', upper:true, fillCol:'#ffffff', strokeCol:'#000000', strokeW:10, shadow:0, opacity:100,
-             x: W/2, y: H/2 };
+             depth:0, depthCol:'#2f6b00', x: W/2, y: H/2 };
+  if (placeholder) it.placeholder = true;
   items.push(it); selId = it.id;
   buildLayers(); render();
   textInput.focus(); textInput.select();
@@ -615,6 +653,8 @@ function syncTextControls(){
   strokeColor.value = it.strokeCol;
   strokeW.value = it.strokeW; strokeWVal.textContent = it.strokeW;
   shadowR.value = it.shadow || 0; shadowVal.textContent = it.shadow || 0;
+  depthR.value = it.depth || 0; depthVal.textContent = it.depth || 0;
+  depthColor.value = it.depthCol || '#2f6b00';
   opacityR.value = it.opacity; opacityVal.textContent = it.opacity;
   alignBtn.textContent = it.align === 'left' ? 'Left' : (it.align === 'right' ? 'Right' : 'Centre');
 }
@@ -632,10 +672,10 @@ textInput.addEventListener('blur', function(){
 });
 textInput.addEventListener('input', function(){
   var it = sel(); if (!it || it.type !== 'text') return;
-  typed(function(){ it.text = textInput.value; buildLayers(); });
+  typed(function(){ it.text = textInput.value; it.placeholder = false; buildLayers(); });
   render();
 });
-fontSel.addEventListener('change', function(){ var it = sel(); if (it && it.type==='text'){ snap(); it.font = fontSel.value; render(); } });
+fontSel.addEventListener('change', function(){ var it = sel(); if (it && it.type==='text'){ snap(); it.font = fontSel.value; var f = FONT_MAP[it.font] || { family: it.font, weight: 400 }; loadFont(f.family, f.weight).then(render); render(); } });
 upperChk.addEventListener('change', function(){ var it = sel(); if (it && it.type==='text'){ snap(); it.upper = upperChk.checked; render(); } });
 alignBtn.addEventListener('click', function(){
   var it = sel(); if (!it || it.type!=='text') return;
@@ -644,7 +684,7 @@ alignBtn.addEventListener('click', function(){
   syncTextControls(); render();
 });
 [[sizeRange,'size','sizeVal',1],[angleRange,'angle','angleVal',1],[lhRange,'lh','lhVal',0.01],
- [strokeW,'strokeW','strokeWVal',1],[shadowR,'shadow','shadowVal',1],[opacityR,'opacity','opacityVal',1]].forEach(function(cfg){
+ [strokeW,'strokeW','strokeWVal',1],[shadowR,'shadow','shadowVal',1],[depthR,'depth','depthVal',1],[opacityR,'opacity','opacityVal',1]].forEach(function(cfg){
   var el = $(cfg[0].id), field = cfg[1], out = $(cfg[2]), mul = cfg[3];
   el.addEventListener('input', function(){
     var it = sel(); if (!it || it.type !== 'text') return;
@@ -659,6 +699,8 @@ fillColor.addEventListener('input', function(){ var it = sel(); if (it && it.typ
 fillColor.addEventListener('change', function(){ snap(); });
 strokeColor.addEventListener('input', function(){ var it = sel(); if (it && it.type==='text'){ it.strokeCol = strokeColor.value; render(); } });
 strokeColor.addEventListener('change', function(){ snap(); });
+depthColor.addEventListener('input', function(){ var it = sel(); if (it && it.type==='text'){ it.depthCol = depthColor.value; render(); } });
+depthColor.addEventListener('change', function(){ snap(); });
 
 // ============ IMAGE LAYER CONTROLS ============
 function syncImgControls(){
@@ -738,6 +780,11 @@ function syncAll(){ syncTextControls(); syncImgControls(); buildLayers(); }
 document.querySelectorAll('[data-tpl]').forEach(function(b){
   b.addEventListener('click', function(){
     snap();
+    // clear the untouched starter text so a layout does not stack on the placeholder
+    for (var pi = items.length - 1; pi >= 0; pi--){
+      if (items[pi].type === 'text' && items[pi].placeholder) items.splice(pi, 1);
+    }
+    if (selId && !items.some(function(x){ return x.id === selId; })) selId = null;
     var t = b.dataset.tpl;
     if (t === 'bottom'){
       bg.scrim = Math.max(bg.scrim, 45);
@@ -745,10 +792,20 @@ document.querySelectorAll('[data-tpl]').forEach(function(b){
     } else if (t === 'topbottom'){
       bg.scrim = Math.max(bg.scrim, 55);
       var k = mkText('THEY FOUND SOMETHING', 46, 74, 'center', true);
-      k.strokeW = 6; k.font = 'Oswald'; items.push(k);
+      k.strokeW = 6; items.push(k);
       items.push(mkText('NOBODY TALKED', 132, 620, 'center'));
     } else if (t === 'left'){
       items.push(mkText('LEFT\nALIGNED', 120, 360, 'left'));
+    } else if (t === 'slime'){
+      var sl = mkText('SLIME', 200, 380, 'center');
+      sl.font = 'Rubik Wet Paint (drip)';
+      sl.fillCol = '#8ce81f';
+      sl.strokeCol = '#0b2400';
+      sl.strokeW = 12;
+      sl.depth = 26;
+      sl.depthCol = '#2f6b00';
+      sl.shadow = 30;
+      items.push(sl);
     } else {
       items.push(mkText('HUGE\nTEXT', 220, 360, 'center'));
     }
@@ -757,13 +814,16 @@ document.querySelectorAll('[data-tpl]').forEach(function(b){
   });
 });
 function mkText(text, size, y, align, small){
-  return { id:newId(), type:'text', text:text, font: small ? 'Oswald' : 'Anton', size:size, lh:1, angle:0,
+  return { id:newId(), type:'text', text:text, font: small ? 'Oswald Bold' : 'Anton', size:size, lh:1, angle:0,
            align: align, upper:true, fillCol:'#ffffff', strokeCol:'#000000', strokeW: small ? 6 : 12,
-           shadow:0, opacity:100, x: align === 'left' ? 70 : W/2, y:y };
+           shadow:0, depth:0, depthCol:'#2f6b00', opacity:100, x: align === 'left' ? 70 : W/2, y:y };
 }
 
 // ============ EXPORT ============
 function exportImage(scale, jpeg){
+  ensureFonts(function(){ reallyExport(scale, jpeg); });
+}
+function reallyExport(scale, jpeg){
   var c2 = document.createElement('canvas');
   c2.width = W*scale; c2.height = H*scale;
   var c = c2.getContext('2d');
@@ -780,6 +840,23 @@ function exportImage(scale, jpeg){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast('Saved ' + c2.width + 'x' + c2.height + ' ' + ext.toUpperCase());
 }
+// canvas text does not trigger webfont downloads on its own, so a font that was
+// never used yet would silently render (and export) as a fallback. Load them explicitly.
+function loadFont(family, weight){
+  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  return document.fonts.load((weight || 400) + ' 130px "' + family + '"').catch(function(){});
+}
+function preloadFonts(){ return Promise.all(FONTS.map(function(f){ return loadFont(f.family, f.weight); })).then(function(){ render(); }); }
+function ensureFonts(cb){
+  var jobs = [];
+  items.forEach(function(it){
+    if (it.type !== 'text') return;
+    var f = FONT_MAP[it.font] || { family: it.font, weight: 400 };
+    jobs.push(loadFont(f.family, f.weight));
+  });
+  Promise.all(jobs).catch(function(){}).then(cb);
+}
+
 function stamp(){
   var d = new Date(), p = function(n){ return (n<10?'0':'')+n; };
   return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
@@ -869,13 +946,20 @@ window.addEventListener('keydown', function(e){
 });
 
 // ============ GO ============
+FONTS.forEach(function(f){
+  var o = document.createElement('option');
+  o.value = f.k;
+  o.textContent = f.k;
+  fontSel.appendChild(o);
+});
+preloadFonts();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ render(); });
 if (document.fonts) document.fonts.onloadingdone = function(){ render(); };
 syncBgControls();
 buildLayers();
 fitCanvas();
 updateHistoryButtons();
-addText('YOUR HEADLINE');   // sensible starting point; undo removes it
+addText('YOUR HEADLINE', true);   // starter placeholder; a layout or your typing replaces it
 textInput.blur();
 })();
 </script>
