@@ -75,7 +75,7 @@ select{cursor:pointer}
   <div id="stagewrap">
     <div id="stage"><canvas id="cv"></canvas></div>
     <div id="drop">Drop image to use as background</div>
-    <div id="tip">Drag to move - corner handle to resize - top handle to rotate - double-click text to edit</div>
+    <div id="tip">Drag the background to reposition it - scroll to zoom - drag a layer to move it - corner handle resizes - top handle rotates</div>
   </div>
 
   <aside id="panel">
@@ -88,10 +88,13 @@ select{cursor:pointer}
           <option value="stretch">Stretch to frame</option>
         </select>
       </div>
-      <label class="ctl">Zoom <input type="range" id="bgZoom" min="100" max="300" value="100"><span class="v" id="bgZoomVal">100</span></label>
+      <label class="ctl">Zoom <input type="range" id="bgZoom" min="10" max="400" value="100"><span class="v" id="bgZoomVal">100</span></label>
       <label class="ctl">Dark scrim <input type="range" id="scrim" min="0" max="100" value="0"><span class="v" id="scrimVal">0</span></label>
       <div class="row">
         <label class="ctl">Backdrop <input type="color" id="bgColor" value="#101018"></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="resetBgBtn">Reset framing</button>
         <button class="btn" id="clearBgBtn">Clear image</button>
       </div>
     </section>
@@ -181,7 +184,8 @@ var undoBtn = $('undoBtn'), redoBtn = $('redoBtn'), guidesBtn = $('guidesBtn'), 
 // ============ STATE ============
 var items = [];            // bottom -> top
 var selId = null;
-var bg = { imgId:null, fit:'cover', zoom:100, color:'#101018', scrim:0 };
+var bg = { imgId:null, fit:'cover', zoom:100, x:0, y:0, color:'#101018', scrim:0 };
+var bgGeom = { dw:0, dh:0 };   // last drawn size, used for pan limits
 var images = {};           // id -> { el, w, h, src }
 var showGuides = true;
 var history = [], redoStack = [];
@@ -236,7 +240,8 @@ function drawBackground(c){
     dw = iw*s; dh = ih*s;
   }
   var z = bg.zoom/100; dw *= z; dh *= z;
-  c.drawImage(img.el, (W-dw)/2, (H-dh)/2, dw, dh);
+  bgGeom.dw = dw; bgGeom.dh = dh;
+  c.drawImage(img.el, (W-dw)/2 + (bg.x||0), (H-dh)/2 + (bg.y||0), dw, dh);
   if (bg.scrim > 0){
     var g = c.createLinearGradient(0, H*0.30, 0, H);
     g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -245,6 +250,40 @@ function drawBackground(c){
     c.fillRect(0, H*0.30, W, H*0.70);
   }
 }
+
+// how far the picture may be pushed before it stops making sense
+function panLimits(){
+  var dw = bgGeom.dw || W, dh = bgGeom.dh || H;
+  var covers = (dw >= W - 0.5) && (dh >= H - 0.5);
+  // while the picture still covers the frame, only let it slide within itself so no
+  // gap can appear; once it is smaller than the frame, it can be placed anywhere.
+  if ((bg.fit === 'cover' || bg.fit === 'stretch') && covers) return { x: (dw - W)/2, y: (dh - H)/2 };
+  return { x: dw/2 + W/2 - 12, y: dh/2 + H/2 - 12 };
+}
+function clampBg(){
+  var l = panLimits();
+  bg.x = Math.max(-l.x, Math.min(l.x, bg.x || 0));
+  bg.y = Math.max(-l.y, Math.min(l.y, bg.y || 0));
+}
+var wheelTimer = null;
+cv.addEventListener('wheel', function(e){
+  if (!bg.imgId) return;
+  e.preventDefault();
+  var p = docPoint(e);
+  var oldZ = bg.zoom;
+  var nz = Math.max(10, Math.min(400, oldZ * (e.deltaY < 0 ? 1.10 : 1/1.10)));
+  var r = nz / oldZ;
+  // keep the point under the cursor pinned while zooming
+  bg.x = (p.x - W/2) * (1 - r) + r * (bg.x || 0);
+  bg.y = (p.y - H/2) * (1 - r) + r * (bg.y || 0);
+  bg.zoom = Math.round(nz * 10) / 10;
+  clampBg();
+  bgZoom.value = bg.zoom;
+  bgZoomVal.textContent = Math.round(bg.zoom);
+  render();
+  if (wheelTimer) clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(function(){ snap(); }, 400);
+}, { passive: false });
 
 function drawItem(c, it){
   c.save();
@@ -406,8 +445,13 @@ cv.addEventListener('pointerdown', function(e){
     snap();
     drag = { mode:'move', it: picked, start:p, x0:picked.x, y0:picked.y };
     cv.setPointerCapture(e.pointerId);
-  } else if (selId){
-    selId = null; render();
+  } else {
+    if (selId){ selId = null; render(); }
+    if (bg.imgId){                       // drag the picture itself
+      snap();
+      drag = { mode:'bg', start:p, x0:bg.x || 0, y0:bg.y || 0 };
+      cv.setPointerCapture(e.pointerId);
+    }
   }
 });
 function dist(p, box){ return Math.sqrt(Math.pow(p.x-box.cx,2) + Math.pow(p.y-box.cy,2)); }
@@ -416,11 +460,19 @@ cv.addEventListener('pointermove', function(e){
   var p = docPoint(e);
   if (!drag){
     var s = sel(), h = s ? hitHandle(p, s, devK()) : null;
-    cv.style.cursor = h === 'rotate' ? 'grab' : (h && h !== 'move' ? 'nwse-resize' : (h === 'move' ? 'move' : (pickItem(p) ? 'move' : 'default')));
+    var hover = h === 'rotate' ? 'grabbing' : (h && h !== 'move' ? 'nwse-resize' : (h === 'move' ? 'move' : (pickItem(p) ? 'move' : (bg.imgId ? 'grab' : 'default'))));
+    cv.style.cursor = hover;
     return;
   }
   e.preventDefault();
   var it = drag.it;
+  if (drag.mode === 'bg'){
+    bg.x = drag.x0 + (p.x - drag.start.x);
+    bg.y = drag.y0 + (p.y - drag.start.y);
+    clampBg();
+    render();
+    return;
+  }
   if (drag.mode === 'move'){
     it.x = drag.x0 + (p.x - drag.start.x);
     it.y = drag.y0 + (p.y - drag.start.y);
@@ -514,6 +566,7 @@ $('addImageBtn').addEventListener('click', function(){
   inp.click();
 });
 clearBgBtn.addEventListener('click', function(){ snap(); bg.imgId = null; syncBgControls(); buildLayers(); render(); });
+$('resetBgBtn').addEventListener('click', function(){ snap(); bg.x = 0; bg.y = 0; bg.zoom = 100; clampBg(); syncBgControls(); render(); toast('Framing reset'); });
 
 var dragDepth = 0;
 wrap.addEventListener('dragenter', function(e){ e.preventDefault(); dragDepth++; drop.style.display = 'flex'; });
@@ -669,7 +722,7 @@ delBtn.addEventListener('click', function(){
 
 // ============ BACKGROUND CONTROLS ============
 bgFit.addEventListener('change', function(){ snap(); bg.fit = bgFit.value; render(); });
-bgZoom.addEventListener('input', function(){ bg.zoom = parseInt(bgZoom.value,10); bgZoomVal.textContent = bg.zoom; render(); });
+bgZoom.addEventListener('input', function(){ bg.zoom = parseFloat(bgZoom.value); bgZoomVal.textContent = Math.round(bg.zoom); clampBg(); render(); });
 bgZoom.addEventListener('change', function(){ snap(); });
 scrim.addEventListener('input', function(){ bg.scrim = parseInt(scrim.value,10); scrimVal.textContent = bg.scrim; render(); });
 scrim.addEventListener('change', function(){ snap(); });
