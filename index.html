@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thumbmaker - YouTube thumbnail studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Oswald:wght@700&family=Montserrat:wght@800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#151522;color:#e8e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;overflow:hidden;display:flex;flex-direction:column;user-select:none;-webkit-user-select:none}
+#bar{display:flex;align-items:center;gap:8px;height:54px;flex:0 0 54px;padding:0 12px;background:#1d1d2e;border-bottom:1px solid #ffffff14;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
+#brand{font-weight:800;letter-spacing:1px;font-size:14px;color:#ff6b6b;margin-right:6px}
+#brand span{color:#6b7280}
+.btn{padding:7px 12px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;background:#ffffff12;color:#e8e8f0;transition:all .12s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:#ffffff22}
+.btn:disabled{opacity:.32;cursor:default}
+.btn.accent{background:#ff6b6b;color:#fff}
+.btn.accent:hover{background:#ff5252}
+.btn.on{background:#4ade8040;box-shadow:0 0 0 2px #4ade8066}
+.spacer{flex:1 1 auto;min-width:8px}
+#main{flex:1;display:flex;min-height:0}
+#stagewrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-width:0;background:#0e0e16;background-image:linear-gradient(45deg,#14142099 25%,transparent 25%),linear-gradient(-45deg,#14142099 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#14142099 75%),linear-gradient(-45deg,transparent 75%,#14142099 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0}
+#stage{position:relative;box-shadow:0 8px 40px #00000080}
+#cv{display:block;touch-action:none;border-radius:2px}
+#panel{width:288px;flex:0 0 288px;background:#1d1d2e;border-left:1px solid #ffffff14;overflow-y:auto;padding:10px 12px 40px}
+#panel::-webkit-scrollbar{width:6px}#panel::-webkit-scrollbar-thumb{background:#ffffff20;border-radius:3px}
+#panel h3{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#8b93a7;margin:14px 0 8px;font-weight:700}
+#panel h3:first-child{margin-top:4px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px;font-size:12px;color:#a8b0c2;margin:6px 0;white-space:nowrap}
+.ctl input[type=range]{flex:1;min-width:60px;accent-color:#ff6b6b;cursor:pointer}
+.ctl .v{color:#ff6b6b;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=color]{width:40px;height:28px;border:1px solid #ffffff26;border-radius:6px;background:transparent;padding:2px;cursor:pointer}
+select,textarea,input[type=text]{background:#141420;color:#e8e8f0;border:1px solid #ffffff20;border-radius:6px;padding:6px 8px;font-size:12px;width:100%;font-family:inherit}
+textarea{resize:vertical;line-height:1.35}
+select{cursor:pointer}
+.sec.dim{opacity:.4;pointer-events:none}
+#layerList{display:flex;flex-direction:column;gap:4px}
+.layer{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;background:#ffffff0c;font-size:12px;cursor:pointer}
+.layer:hover{background:#ffffff18}
+.layer.sel{background:#ff6b6b33;box-shadow:inset 0 0 0 1px #ff6b6b66}
+.layer .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layer button{border:none;background:none;color:#9aa3b8;cursor:pointer;font-size:12px;padding:1px 3px;border-radius:4px}
+.layer button:hover{background:#ffffff20;color:#fff}
+#drop{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0e0e16cc;color:#ff6b6b;font-weight:700;font-size:18px;border:2px dashed #ff6b6b88;z-index:5}
+#tip{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:#6b7280;pointer-events:none}
+@media(max-width:820px){
+  #main{flex-direction:column}
+  #panel{width:100%;flex:0 0 auto;max-height:44vh;border-left:none;border-top:1px solid #ffffff14}
+}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <span id="brand">THUMB<span>MAKER</span></span>
+  <button class="btn" id="addTextBtn">+ Text</button>
+  <button class="btn" id="addImageBtn">+ Image</button>
+  <label class="btn">Background<input type="file" id="bgFile" accept="image/*" hidden></label>
+  <button class="btn" id="undoBtn">&#8630; Undo</button>
+  <button class="btn" id="redoBtn">&#8631; Redo</button>
+  <button class="btn on" id="guidesBtn">Guides</button>
+  <span class="spacer"></span>
+  <button class="btn" id="saveBtn">Save project</button>
+  <label class="btn">Open<input type="file" id="openFile" accept=".json,application/json" hidden></label>
+  <button class="btn accent" id="pngBtn">PNG 1280x720</button>
+  <button class="btn accent" id="png2xBtn">PNG 2560x1440</button>
+  <button class="btn accent" id="jpgBtn">JPG</button>
+</div>
+
+<div id="main">
+  <div id="stagewrap">
+    <div id="stage"><canvas id="cv"></canvas></div>
+    <div id="drop">Drop image to use as background</div>
+    <div id="tip">Drag to move - corner handle to resize - top handle to rotate - double-click text to edit</div>
+  </div>
+
+  <aside id="panel">
+    <section class="sec">
+      <h3>Background</h3>
+      <div class="row">
+        <select id="bgFit">
+          <option value="cover">Fill the frame (crop)</option>
+          <option value="contain">Fit inside (bars)</option>
+          <option value="stretch">Stretch to frame</option>
+        </select>
+      </div>
+      <label class="ctl">Zoom <input type="range" id="bgZoom" min="100" max="300" value="100"><span class="v" id="bgZoomVal">100</span></label>
+      <label class="ctl">Dark scrim <input type="range" id="scrim" min="0" max="100" value="0"><span class="v" id="scrimVal">0</span></label>
+      <div class="row">
+        <label class="ctl">Backdrop <input type="color" id="bgColor" value="#101018"></label>
+        <button class="btn" id="clearBgBtn">Clear image</button>
+      </div>
+    </section>
+
+    <section class="sec" id="textSec">
+      <h3>Selected text</h3>
+      <textarea id="textInput" rows="2" placeholder="Type your headline here"></textarea>
+      <div class="row" style="margin-top:6px">
+        <select id="fontSel">
+          <option value="Anton">Anton</option>
+          <option value="Archivo Black">Archivo Black</option>
+          <option value="Bebas Neue">Bebas Neue</option>
+          <option value="Oswald">Oswald</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Arial Black">Arial Black</option>
+          <option value="Impact">Impact</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Trebuchet MS">Trebuchet</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="ctl"><input type="checkbox" id="upperChk"> CAPS</label>
+        <button class="btn" id="alignBtn">Centre</button>
+      </div>
+      <label class="ctl">Size <input type="range" id="sizeRange" min="20" max="320" value="130"><span class="v" id="sizeVal">130</span></label>
+      <label class="ctl">Angle <input type="range" id="angleRange" min="-45" max="45" value="0"><span class="v" id="angleVal">0</span></label>
+      <label class="ctl">Line gap <input type="range" id="lhRange" min="80" max="150" value="100"><span class="v" id="lhVal">1.0</span></label>
+      <div class="row">
+        <label class="ctl">Fill <input type="color" id="fillColor" value="#ffffff"></label>
+        <label class="ctl">Outline <input type="color" id="strokeColor" value="#000000"></label>
+      </div>
+      <label class="ctl">Outline <input type="range" id="strokeW" min="0" max="40" value="10"><span class="v" id="strokeWVal">10</span></label>
+      <label class="ctl">Drop shadow <input type="range" id="shadowR" min="0" max="90" value="0"><span class="v" id="shadowVal">0</span></label>
+      <label class="ctl">Opacity <input type="range" id="opacityR" min="10" max="100" value="100"><span class="v" id="opacityVal">100</span></label>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="dupBtn">Duplicate</button>
+        <button class="btn" id="delBtn">Delete</button>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h3>Selected image</h3>
+      <label class="ctl">Scale <input type="range" id="imgScale" min="10" max="300" value="100"><span class="v" id="imgScaleVal">100</span></label>
+      <label class="ctl">Angle <input type="range" id="imgAngle" min="-180" max="180" value="0"><span class="v" id="imgAngleVal">0</span></label>
+      <label class="ctl">Opacity <input type="range" id="imgOpacity" min="10" max="100" value="100"><span class="v" id="imgOpacityVal">100</span></label>
+    </section>
+
+    <section class="sec">
+      <h3>Layers <span id="layerCount" style="color:#4b5468"></span></h3>
+      <div id="layerList"></div>
+    </section>
+
+    <section class="sec">
+      <h3>Quick layouts</h3>
+      <div class="row">
+        <button class="btn" data-tpl="bottom">Bottom banner</button>
+        <button class="btn" data-tpl="topbottom">Top + bottom</button>
+        <button class="btn" data-tpl="left">Left block</button>
+        <button class="btn" data-tpl="centre">Giant centre</button>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// ============ CONSTANTS ============
+var W = 1280, H = 720;          // document size = YouTube thumbnail size
+var Q = 2;                        // editor always renders at 2x for crisp text
+var FONTS = ['Anton','Archivo Black','Bebas Neue','Oswald','Montserrat','Arial Black','Impact','Georgia','Trebuchet MS'];
+
+// ============ DOM ============
+var $ = function(id){ return document.getElementById(id); };
+var wrap = $('stagewrap'), stage = $('stage'), cv = $('cv'), ctx = cv.getContext('2d');
+var bar = $('bar');
+var bgFile = $('bgFile'), openFile = $('openFile');
+var bgFit = $('bgFit'), bgZoom = $('bgZoom'), bgZoomVal = $('bgZoomVal'), scrim = $('scrim'), scrimVal = $('scrimVal'), bgColor = $('bgColor'), clearBgBtn = $('clearBgBtn');
+var textSec = $('textSec'), textInput = $('textInput'), fontSel = $('fontSel'), upperChk = $('upperChk'), alignBtn = $('alignBtn');
+var sizeRange = $('sizeRange'), sizeVal = $('sizeVal'), angleRange = $('angleRange'), angleVal = $('angleVal'), lhRange = $('lhRange'), lhVal = $('lhVal');
+var fillColor = $('fillColor'), strokeColor = $('strokeColor'), strokeW = $('strokeW'), strokeWVal = $('strokeWVal'), shadowR = $('shadowR'), shadowVal = $('shadowVal'), opacityR = $('opacityR'), opacityVal = $('opacityVal');
+var dupBtn = $('dupBtn'), delBtn = $('delBtn'), layerList = $('layerList'), layerCount = $('layerCount');
+var imgScale = $('imgScale'), imgScaleVal = $('imgScaleVal'), imgAngle = $('imgAngle'), imgAngleVal = $('imgAngleVal'), imgOpacity = $('imgOpacity'), imgOpacityVal = $('imgOpacityVal');
+var undoBtn = $('undoBtn'), redoBtn = $('redoBtn'), guidesBtn = $('guidesBtn'), saveBtn = $('saveBtn'), drop = $('drop');
+
+// ============ STATE ============
+var items = [];            // bottom -> top
+var selId = null;
+var bg = { imgId:null, fit:'cover', zoom:100, color:'#101018', scrim:0 };
+var images = {};           // id -> { el, w, h, src }
+var showGuides = true;
+var history = [], redoStack = [];
+var uid = 1;
+function newId(){ return 'x' + (uid++) + '-' + Date.now().toString(36); }
+function sel(){ return items.filter(function(i){ return i.id === selId; })[0] || null; }
+
+// ============ CANVAS SIZING ============
+function fitCanvas(){
+  var availW = Math.max(80, wrap.clientWidth - 36);
+  var availH = Math.max(60, wrap.clientHeight - 36);
+  var k = Math.min(availW / W, availH / H);
+  var cssW = Math.floor(W * k), cssH = Math.floor(H * k);
+  cv.width = W * Q; cv.height = H * Q;
+  cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
+  render();
+}
+window.addEventListener('resize', fitCanvas);
+function devK(){ return cv.width / W; }        // doc -> device pixels
+function fontStr(it){
+  return (it.italic ? 'italic ' : '') + 'normal ' + Math.round(it.size) + 'px "' + it.font + '", "Arial Black", sans-serif';
+}
+function linesOf(it){
+  var t = it.upper ? String(it.text).toUpperCase() : String(it.text);
+  return t.split('\n');
+}
+
+// ============ RENDER ============
+function render(){
+  var k = devK();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.setTransform(k,0,0,k,0,0);
+  ctx.textBaseline = 'middle';
+  drawBackground(ctx);
+  for (var i=0;i<items.length;i++) drawItem(ctx, items[i]);
+  if (showGuides) drawGuides(ctx, k);
+  var s = sel();
+  if (s) drawSelection(ctx, s, k);
+  updatePanelState();
+}
+
+function drawBackground(c){
+  c.fillStyle = bg.color;
+  c.fillRect(0,0,W,H);
+  var img = bg.imgId ? images[bg.imgId] : null;
+  if (!img) return;
+  var iw = img.w, ih = img.h, dw, dh;
+  if (bg.fit === 'stretch'){ dw = W; dh = H; }
+  else {
+    var s = (bg.fit === 'cover') ? Math.max(W/iw, H/ih) : Math.min(W/iw, H/ih);
+    dw = iw*s; dh = ih*s;
+  }
+  var z = bg.zoom/100; dw *= z; dh *= z;
+  c.drawImage(img.el, (W-dw)/2, (H-dh)/2, dw, dh);
+  if (bg.scrim > 0){
+    var g = c.createLinearGradient(0, H*0.30, 0, H);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,' + (bg.scrim/100) + ')');
+    c.fillStyle = g;
+    c.fillRect(0, H*0.30, W, H*0.70);
+  }
+}
+
+function drawItem(c, it){
+  c.save();
+  c.globalAlpha = (it.opacity == null ? 1 : it.opacity/100);
+  c.translate(it.x, it.y);
+  c.rotate((it.angle||0) * Math.PI/180);
+  if (it.type === 'text'){
+    c.font = fontStr(it);
+    c.textAlign = it.align || 'center';
+    var lines = linesOf(it);
+    var lh = it.size * (it.lh || 1);
+    c.lineJoin = 'round';
+    c.miterLimit = 2;
+    for (var i=0;i<lines.length;i++){
+      var y = (i - (lines.length-1)/2) * lh;
+      if (it.shadow > 0){
+        c.shadowColor = 'rgba(0,0,0,' + (it.shadow/100) + ')';
+        c.shadowBlur = it.size * 0.30;
+        c.shadowOffsetY = it.size * 0.07;
+      }
+      if (it.strokeW > 0 && it.strokeCol){
+        c.strokeStyle = it.strokeCol;
+        c.lineWidth = it.strokeW;
+        c.strokeText(lines[i], 0, y);
+      }
+      c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0;
+      c.fillStyle = it.fillCol;
+      c.fillText(lines[i], 0, y);
+    }
+  } else if (it.type === 'img'){
+    var img = images[it.imgId];
+    if (img){
+      var w = img.w * it.scale, h = img.h * it.scale;
+      c.drawImage(img.el, -w/2, -h/2, w, h);
+    }
+  }
+  c.restore();
+}
+
+function drawGuides(c, k){
+  var u = 20/k;                              // ~20 device px in doc units
+  c.save();
+  c.setLineDash([8/k, 8/k]);
+  c.strokeStyle = 'rgba(255,255,255,0.28)';
+  c.lineWidth = 2/k;
+  c.strokeRect(u*2, u*2, W-u*4, H-u*4);
+  // where YouTube prints the video length
+  var bw = 122, bh = 40, bx = W - bw - 14, by = H - bh - 14;
+  c.fillStyle = 'rgba(0,0,0,0.45)';
+  c.fillRect(bx, by, bw, bh);
+  c.strokeStyle = 'rgba(255,120,120,0.55)';
+  c.setLineDash([6/k, 6/k]);
+  c.strokeRect(bx, by, bw, bh);
+  c.setLineDash([]);
+  c.fillStyle = 'rgba(255,150,150,0.85)';
+  c.font = 'normal ' + Math.round(20) + 'px sans-serif';
+  c.textAlign = 'center';
+  c.fillText('duration', bx + bw/2, by + bh/2);
+  c.restore();
+}
+
+function itemBox(c, it){
+  if (it.type === 'text'){
+    c.save();
+    c.font = fontStr(it);
+    var lines = linesOf(it), w = 0;
+    for (var i=0;i<lines.length;i++) w = Math.max(w, c.measureText(lines[i]).width);
+    c.restore();
+    w += it.strokeW;
+    var h = lines.length * it.size * (it.lh || 1) + it.strokeW;
+    var ox = (it.align === 'left') ? w/2 : (it.align === 'right' ? -w/2 : 0);
+    return { w:w, h:h, cx: it.x + ox, cy: it.y };
+  }
+  var img = images[it.imgId];
+  var iw = img ? img.w * it.scale : 10, ih = img ? img.h * it.scale : 10;
+  return { w:iw, h:ih, cx: it.x, cy: it.y };
+}
+
+function drawSelection(c, it, k){
+  var b = itemBox(c, it);
+  var u = 20/k;
+  c.save();
+  c.translate(b.cx, b.cy);
+  c.rotate((it.angle||0) * Math.PI/180);
+  c.strokeStyle = '#4ade80';
+  c.lineWidth = 2/k;
+  c.strokeRect(-b.w/2, -b.h/2, b.w, b.h);
+  // corner handles
+  c.fillStyle = '#4ade80';
+  var hs = u*0.85;
+  var corners = [[-b.w/2,-b.h/2],[b.w/2,-b.h/2],[b.w/2,b.h/2],[-b.w/2,b.h/2]];
+  for (var i=0;i<4;i++) c.fillRect(corners[i][0]-hs/2, corners[i][1]-hs/2, hs, hs);
+  // rotate handle
+  c.beginPath();
+  c.moveTo(0, -b.h/2);
+  c.lineTo(0, -b.h/2 - u*2);
+  c.stroke();
+  c.beginPath();
+  c.arc(0, -b.h/2 - u*2.6, u*0.75, 0, 6.2832);
+  c.fill();
+  c.restore();
+}
+
+// ============ HIT TESTING ============
+function toLocal(p, it, box){
+  var dx = p.x - box.cx, dy = p.y - box.cy;
+  var a = -(it.angle||0) * Math.PI/180;
+  return { x: dx*Math.cos(a) - dy*Math.sin(a), y: dx*Math.sin(a) + dy*Math.cos(a) };
+}
+function hitHandle(p, it, k){
+  var box = itemBox(ctx, it);
+  var l = toLocal(p, it, box);
+  var u = 20/k, tol = u*1.5;
+  // rotate handle
+  if (Math.abs(l.x) <= tol && Math.abs(l.y - (-box.h/2 - u*2.6)) <= tol) return 'rotate';
+  // corner handles -> which one
+  var corners = [
+    { n:'nw', x:-box.w/2, y:-box.h/2 }, { n:'ne', x:box.w/2, y:-box.h/2 },
+    { n:'se', x:box.w/2, y:box.h/2 }, { n:'sw', x:-box.w/2, y:box.h/2 }
+  ];
+  for (var i=0;i<corners.length;i++){
+    if (Math.abs(l.x - corners[i].x) <= tol && Math.abs(l.y - corners[i].y) <= tol) return corners[i].n;
+  }
+  if (Math.abs(l.x) <= box.w/2 && Math.abs(l.y) <= box.h/2) return 'move';
+  return null;
+}
+function pickItem(p){
+  for (var i=items.length-1;i>=0;i--){
+    var box = itemBox(ctx, items[i]);
+    var l = toLocal(p, items[i], box);
+    if (Math.abs(l.x) <= box.w/2 && Math.abs(l.y) <= box.h/2) return items[i];
+  }
+  return null;
+}
+
+// ============ POINTER ============
+var drag = null;
+function docPoint(e){
+  var r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+cv.addEventListener('pointerdown', function(e){
+  if (e.button !== 0) return;
+  e.preventDefault();
+  var p = docPoint(e);
+  var k = devK();
+  var s = sel();
+  var mode = s ? hitHandle(p, s, k) : null;
+  if (mode){
+    snap();
+    drag = { mode: mode, it: s, start: p, x0: s.x, y0: s.y, size0: s.size, scale0: s.scale,
+             angle0: s.angle || 0, d0: Math.max(1, dist(p, itemBox(ctx, s))) , box: itemBox(ctx, s) };
+    cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  var picked = pickItem(p);
+  if (picked && picked.id !== selId){ selId = picked.id; render(); }
+  if (picked){
+    snap();
+    drag = { mode:'move', it: picked, start:p, x0:picked.x, y0:picked.y };
+    cv.setPointerCapture(e.pointerId);
+  } else if (selId){
+    selId = null; render();
+  }
+});
+function dist(p, box){ return Math.sqrt(Math.pow(p.x-box.cx,2) + Math.pow(p.y-box.cy,2)); }
+
+cv.addEventListener('pointermove', function(e){
+  var p = docPoint(e);
+  if (!drag){
+    var s = sel(), h = s ? hitHandle(p, s, devK()) : null;
+    cv.style.cursor = h === 'rotate' ? 'grab' : (h && h !== 'move' ? 'nwse-resize' : (h === 'move' ? 'move' : (pickItem(p) ? 'move' : 'default')));
+    return;
+  }
+  e.preventDefault();
+  var it = drag.it;
+  if (drag.mode === 'move'){
+    it.x = drag.x0 + (p.x - drag.start.x);
+    it.y = drag.y0 + (p.y - drag.start.y);
+  } else if (drag.mode === 'rotate'){
+    it.angle = Math.round(Math.atan2(p.y - itemBox(ctx,it).cy, p.x - itemBox(ctx,it).cx) * 180/Math.PI + 90);
+    if (e.shiftKey) it.angle = Math.round(it.angle/15)*15;
+  } else {
+    var b = itemBox(ctx, it);
+    var f = dist(p, b) / drag.d0;
+    f = Math.max(0.08, Math.min(12, f));
+    if (it.type === 'text') it.size = Math.max(8, Math.min(600, drag.size0 * f));
+    else it.scale = Math.max(0.02, Math.min(8, drag.scale0 * f));
+  }
+  render();
+});
+function endDrag(){ if (drag){ drag = null; render(); } }
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('dblclick', function(e){
+  var it = pickItem(docPoint(e));
+  if (it && it.type === 'text'){ selId = it.id; render(); textInput.focus(); textInput.select(); }
+});
+
+// ============ HISTORY ============
+function snapshot(){
+  return JSON.stringify({ items: items, bg: bg, selId: selId });
+}
+function snap(){
+  history.push(snapshot());
+  if (history.length > 60) history.shift();
+  redoStack.length = 0;
+  updateHistoryButtons();
+}
+function restore(json){
+  var s = JSON.parse(json);
+  items = s.items;
+  bg = s.bg;
+  selId = s.selId;
+  syncBgControls();
+  syncTextControls();
+  buildLayers();
+  render();
+}
+function undo(){
+  if (!history.length) return;
+  redoStack.push(snapshot());
+  restore(history.pop());
+  updateHistoryButtons();
+}
+function redo(){
+  if (!redoStack.length) return;
+  history.push(snapshot());
+  restore(redoStack.pop());
+  updateHistoryButtons();
+}
+function updateHistoryButtons(){
+  undoBtn.disabled = history.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+
+// ============ IMAGES ============
+function addImage(src, asBackground){
+  var img = new Image();
+  img.onload = function(){
+    var id = newId();
+    images[id] = { el: img, w: img.naturalWidth, h: img.naturalHeight, src: src };
+    snap();
+    if (asBackground || !bg.imgId){
+      bg.imgId = id;
+    } else {
+      var k = Math.min(W*0.6/img.naturalWidth, H*0.6/img.naturalHeight, 1);
+      var it = { id: newId(), type:'img', imgId:id, x: W/2, y: H/2, scale: k, angle: 0, opacity: 100 };
+      items.push(it); selId = it.id;
+    }
+    syncBgControls(); buildLayers(); render();
+  };
+  img.onerror = function(){ alert('That image could not be loaded.'); };
+  img.src = src;
+}
+function readFileAsImage(file, asBackground){
+  if (!file || !/^image\//.test(file.type)) return;
+  var fr = new FileReader();
+  fr.onload = function(){ addImage(fr.result, asBackground); };
+  fr.readAsDataURL(file);
+}
+bgFile.addEventListener('change', function(){ readFileAsImage(bgFile.files[0], true); bgFile.value = ''; });
+$('addImageBtn').addEventListener('click', function(){
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = function(){ readFileAsImage(inp.files[0], false); };
+  inp.click();
+});
+clearBgBtn.addEventListener('click', function(){ snap(); bg.imgId = null; syncBgControls(); buildLayers(); render(); });
+
+var dragDepth = 0;
+wrap.addEventListener('dragenter', function(e){ e.preventDefault(); dragDepth++; drop.style.display = 'flex'; });
+wrap.addEventListener('dragover', function(e){ e.preventDefault(); });
+wrap.addEventListener('dragleave', function(e){ dragDepth--; if (dragDepth <= 0){ dragDepth = 0; drop.style.display = 'none'; } });
+wrap.addEventListener('drop', function(e){
+  e.preventDefault(); dragDepth = 0; drop.style.display = 'none';
+  var f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) readFileAsImage(f, !bg.imgId);
+  else if (e.dataTransfer.getData('text')) addText(e.dataTransfer.getData('text'));
+});
+window.addEventListener('paste', function(e){
+  var its = e.clipboardData && e.clipboardData.items;
+  if (!its) return;
+  for (var i=0;i<its.length;i++){
+    if (its[i].type.indexOf('image') === 0){ readFileAsImage(its[i].getAsFile(), !bg.imgId); return; }
+  }
+  var txt = e.clipboardData.getData('text');
+  if (txt && document.activeElement !== textInput) addText(txt);
+});
+
+// ============ TEXT ============
+function addText(text){
+  snap();
+  var it = { id:newId(), type:'text', text: text || 'HEADLINE', font:'Anton', size:130, lh:1, angle:0,
+             align:'center', upper:true, fillCol:'#ffffff', strokeCol:'#000000', strokeW:10, shadow:0, opacity:100,
+             x: W/2, y: H/2 };
+  items.push(it); selId = it.id;
+  buildLayers(); render();
+  textInput.focus(); textInput.select();
+}
+$('addTextBtn').addEventListener('click', function(){ addText(''); });
+
+function syncTextControls(){
+  var it = sel();
+  textSec.classList.toggle('dim', !(it && it.type === 'text'));
+  if (!it || it.type !== 'text') return;
+  // do not fight the user: leave the textarea alone while they are typing in it
+  if (document.activeElement !== textInput) textInput.value = it.text;
+  fontSel.value = it.font;
+  upperChk.checked = !!it.upper;
+  sizeRange.value = it.size; sizeVal.textContent = Math.round(it.size);
+  angleRange.value = it.angle || 0; angleVal.textContent = Math.round(it.angle || 0) + '\u00b0';
+  lhRange.value = Math.round((it.lh || 1) * 100); lhVal.textContent = (it.lh || 1).toFixed(2);
+  fillColor.value = it.fillCol;
+  strokeColor.value = it.strokeCol;
+  strokeW.value = it.strokeW; strokeWVal.textContent = it.strokeW;
+  shadowR.value = it.shadow || 0; shadowVal.textContent = it.shadow || 0;
+  opacityR.value = it.opacity; opacityVal.textContent = it.opacity;
+  alignBtn.textContent = it.align === 'left' ? 'Left' : (it.align === 'right' ? 'Right' : 'Centre');
+}
+var typeTimer = null, pendingText = null;
+function typed(fn){
+  if (typeTimer) clearTimeout(typeTimer);
+  pendingText = fn;
+  typeTimer = setTimeout(function(){ pendingText = null; snap(); fn(); render(); }, 500);
+}
+textInput.addEventListener('blur', function(){
+  if (!pendingText) return;
+  clearTimeout(typeTimer);
+  var f = pendingText; pendingText = null;
+  snap(); f(); render();
+});
+textInput.addEventListener('input', function(){
+  var it = sel(); if (!it || it.type !== 'text') return;
+  typed(function(){ it.text = textInput.value; buildLayers(); });
+  render();
+});
+fontSel.addEventListener('change', function(){ var it = sel(); if (it && it.type==='text'){ snap(); it.font = fontSel.value; render(); } });
+upperChk.addEventListener('change', function(){ var it = sel(); if (it && it.type==='text'){ snap(); it.upper = upperChk.checked; render(); } });
+alignBtn.addEventListener('click', function(){
+  var it = sel(); if (!it || it.type!=='text') return;
+  snap();
+  it.align = it.align === 'center' ? 'left' : (it.align === 'left' ? 'right' : 'center');
+  syncTextControls(); render();
+});
+[[sizeRange,'size','sizeVal',1],[angleRange,'angle','angleVal',1],[lhRange,'lh','lhVal',0.01],
+ [strokeW,'strokeW','strokeWVal',1],[shadowR,'shadow','shadowVal',1],[opacityR,'opacity','opacityVal',1]].forEach(function(cfg){
+  var el = $(cfg[0].id), field = cfg[1], out = $(cfg[2]), mul = cfg[3];
+  el.addEventListener('input', function(){
+    var it = sel(); if (!it || it.type !== 'text') return;
+    var v = parseFloat(el.value);
+    it[field] = (field === 'lh') ? v/100 : v;
+    out.textContent = (field === 'angle') ? Math.round(v) + '\u00b0' : (field === 'lh' ? (v/100).toFixed(2) : Math.round(v));
+    render();
+  });
+  el.addEventListener('change', function(){ snap(); });
+});
+fillColor.addEventListener('input', function(){ var it = sel(); if (it && it.type==='text'){ it.fillCol = fillColor.value; render(); } });
+fillColor.addEventListener('change', function(){ snap(); });
+strokeColor.addEventListener('input', function(){ var it = sel(); if (it && it.type==='text'){ it.strokeCol = strokeColor.value; render(); } });
+strokeColor.addEventListener('change', function(){ snap(); });
+
+// ============ IMAGE LAYER CONTROLS ============
+function syncImgControls(){
+  var it = sel();
+  var on = !!(it && it.type === 'img');
+  imgScale.disabled = imgAngle.disabled = imgOpacity.disabled = !on;
+  if (!on) return;
+  imgScale.value = it.scale*100; imgScaleVal.textContent = Math.round(it.scale*100);
+  imgAngle.value = it.angle; imgAngleVal.textContent = Math.round(it.angle) + '\u00b0';
+  imgOpacity.value = it.opacity; imgOpacityVal.textContent = it.opacity;
+}
+imgScale.addEventListener('input', function(){ var it = sel(); if (it && it.type==='img'){ it.scale = imgScale.value/100; imgScaleVal.textContent = imgScale.value; render(); } });
+imgScale.addEventListener('change', function(){ snap(); });
+imgAngle.addEventListener('input', function(){ var it = sel(); if (it && it.type==='img'){ it.angle = parseFloat(imgAngle.value); imgAngleVal.textContent = Math.round(it.angle) + '\u00b0'; render(); } });
+imgAngle.addEventListener('change', function(){ snap(); });
+imgOpacity.addEventListener('input', function(){ var it = sel(); if (it && it.type==='img'){ it.opacity = parseInt(imgOpacity.value,10); imgOpacityVal.textContent = it.opacity; render(); } });
+imgOpacity.addEventListener('change', function(){ snap(); });
+
+// ============ LAYERS ============
+function label(it){
+  if (it.type === 'text') return (it.text || '(empty)').replace(/\n/g,' ').slice(0,18) || '(empty)';
+  return 'image';
+}
+function buildLayers(){
+  layerList.innerHTML = '';
+  layerCount.textContent = items.length ? '(' + items.length + ')' : '';
+  for (var i = items.length-1; i >= 0; i--){
+    (function(idx){
+      var it = items[idx];
+      var row = document.createElement('div');
+      row.className = 'layer' + (it.id === selId ? ' sel' : '');
+      var nm = document.createElement('span');
+      nm.className = 'nm';
+      nm.textContent = (it.type === 'text' ? 'T ' : 'IMG ') + label(it);
+      nm.addEventListener('click', function(){ selId = it.id; syncAll(); render(); });
+      row.appendChild(nm);
+      var up = document.createElement('button'); up.textContent = '\u25b2'; up.title = 'Bring forward';
+      up.addEventListener('click', function(e){ e.stopPropagation(); snap(); var j = items.indexOf(it); if (j < items.length-1){ items.splice(j,1); items.splice(j+1,0,it); } buildLayers(); render(); });
+      var dn = document.createElement('button'); dn.textContent = '\u25bc'; dn.title = 'Send back';
+      dn.addEventListener('click', function(e){ e.stopPropagation(); snap(); var j = items.indexOf(it); if (j > 0){ items.splice(j,1); items.splice(j-1,0,it); } buildLayers(); render(); });
+      var cp = document.createElement('button'); cp.textContent = '\u29c9'; cp.title = 'Duplicate';
+      cp.addEventListener('click', function(e){ e.stopPropagation(); snap(); var c = JSON.parse(JSON.stringify(it)); c.id = newId(); c.x += 30; c.y += 30; items.push(c); selId = c.id; buildLayers(); render(); });
+      var dl = document.createElement('button'); dl.textContent = '\u2715'; dl.title = 'Delete';
+      dl.addEventListener('click', function(e){ e.stopPropagation(); snap(); items.splice(items.indexOf(it),1); if (selId === it.id) selId = null; buildLayers(); render(); });
+      row.appendChild(up); row.appendChild(dn); row.appendChild(cp); row.appendChild(dl);
+      layerList.appendChild(row);
+    })(i);
+  }
+}
+dupBtn.addEventListener('click', function(){
+  var it = sel(); if (!it) return;
+  snap();
+  var c = JSON.parse(JSON.stringify(it)); c.id = newId(); c.x += 30; c.y += 30;
+  items.push(c); selId = c.id; buildLayers(); render();
+});
+delBtn.addEventListener('click', function(){
+  var it = sel(); if (!it) return;
+  snap();
+  items.splice(items.indexOf(it),1); selId = null; buildLayers(); render();
+});
+
+// ============ BACKGROUND CONTROLS ============
+bgFit.addEventListener('change', function(){ snap(); bg.fit = bgFit.value; render(); });
+bgZoom.addEventListener('input', function(){ bg.zoom = parseInt(bgZoom.value,10); bgZoomVal.textContent = bg.zoom; render(); });
+bgZoom.addEventListener('change', function(){ snap(); });
+scrim.addEventListener('input', function(){ bg.scrim = parseInt(scrim.value,10); scrimVal.textContent = bg.scrim; render(); });
+scrim.addEventListener('change', function(){ snap(); });
+bgColor.addEventListener('input', function(){ bg.color = bgColor.value; render(); });
+bgColor.addEventListener('change', function(){ snap(); });
+function syncBgControls(){
+  bgFit.value = bg.fit; bgZoom.value = bg.zoom; bgZoomVal.textContent = bg.zoom;
+  scrim.value = bg.scrim; scrimVal.textContent = bg.scrim; bgColor.value = bg.color;
+}
+function syncAll(){ syncTextControls(); syncImgControls(); buildLayers(); }
+
+// ============ TEMPLATES ============
+document.querySelectorAll('[data-tpl]').forEach(function(b){
+  b.addEventListener('click', function(){
+    snap();
+    var t = b.dataset.tpl;
+    if (t === 'bottom'){
+      bg.scrim = Math.max(bg.scrim, 45);
+      items.push(mkText('YOUR HEADLINE', 150, 640, 'center'));
+    } else if (t === 'topbottom'){
+      bg.scrim = Math.max(bg.scrim, 55);
+      var k = mkText('THEY FOUND SOMETHING', 46, 74, 'center', true);
+      k.strokeW = 6; k.font = 'Oswald'; items.push(k);
+      items.push(mkText('NOBODY TALKED', 132, 620, 'center'));
+    } else if (t === 'left'){
+      items.push(mkText('LEFT\nALIGNED', 120, 360, 'left'));
+    } else {
+      items.push(mkText('HUGE\nTEXT', 220, 360, 'center'));
+    }
+    selId = items[items.length-1].id;
+    syncBgControls(); buildLayers(); render();
+  });
+});
+function mkText(text, size, y, align, small){
+  return { id:newId(), type:'text', text:text, font: small ? 'Oswald' : 'Anton', size:size, lh:1, angle:0,
+           align: align, upper:true, fillCol:'#ffffff', strokeCol:'#000000', strokeW: small ? 6 : 12,
+           shadow:0, opacity:100, x: align === 'left' ? 70 : W/2, y:y };
+}
+
+// ============ EXPORT ============
+function exportImage(scale, jpeg){
+  var c2 = document.createElement('canvas');
+  c2.width = W*scale; c2.height = H*scale;
+  var c = c2.getContext('2d');
+  c.setTransform(scale,0,0,scale,0,0);
+  c.textBaseline = 'middle';
+  drawBackground(c);
+  for (var i=0;i<items.length;i++) drawItem(c, items[i]);
+  var url, ext;
+  if (jpeg){ url = c2.toDataURL('image/jpeg', 0.92); ext = 'jpg'; }
+  else { url = c2.toDataURL('image/png'); ext = 'png'; }
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'thumbnail-' + stamp() + (scale > 1 ? '-2x' : '') + '.' + ext;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Saved ' + c2.width + 'x' + c2.height + ' ' + ext.toUpperCase());
+}
+function stamp(){
+  var d = new Date(), p = function(n){ return (n<10?'0':'')+n; };
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+$('pngBtn').addEventListener('click', function(){ exportImage(1, false); });
+$('png2xBtn').addEventListener('click', function(){ exportImage(2, false); });
+$('jpgBtn').addEventListener('click', function(){ exportImage(1, true); });
+
+// project save / open
+saveBtn.addEventListener('click', function(){
+  var imgs = {};
+  for (var id in images) imgs[id] = { src: images[id].src };
+  var data = JSON.stringify({ v:1, items: items, bg: bg, images: imgs });
+  var a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(data);
+  a.download = 'thumbmaker-project-' + stamp() + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Project saved');
+});
+openFile.addEventListener('change', function(){
+  var f = openFile.files[0];
+  if (!f) return;
+  var fr = new FileReader();
+  fr.onload = function(){
+    try {
+      var d = JSON.parse(fr.result);
+      snap();
+      var pending = 0;
+      var ids = Object.keys(d.images || {});
+      ids.forEach(function(id){
+        var im = new Image();
+        pending++;
+        im.onload = function(){
+          images[id] = { el: im, w: im.naturalWidth, h: im.naturalHeight, src: d.images[id].src };
+          if (--pending === 0) { items = d.items; bg = d.bg; selId = d.items.length ? d.items[d.items.length-1].id : null; done(); }
+        };
+        im.onerror = function(){ images[id] = { el: im, w: 1, h: 1, src: d.images[id].src }; if (--pending === 0){ items = d.items; bg = d.bg; done(); } };
+        im.src = d.images[id].src;
+      });
+      if (!ids.length){ items = d.items; bg = d.bg; selId = null; done(); }
+    } catch (err){ alert('That file could not be read as a Thumbmaker project.'); }
+  };
+  function done(){ syncBgControls(); syncAll(); render(); toast('Project loaded'); }
+  fr.readAsText(f);
+  openFile.value = '';
+});
+
+// ============ MISC UI ============
+guidesBtn.addEventListener('click', function(){
+  showGuides = !showGuides;
+  guidesBtn.classList.toggle('on', showGuides);
+  render();
+});
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+var toastEl = null;
+function toast(msg){
+  if (!toastEl){
+    toastEl = document.createElement('div');
+    toastEl.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#4ade80;color:#08240f;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;z-index:99;opacity:0;transition:opacity .2s';
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = msg;
+  toastEl.style.opacity = '1';
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(function(){ toastEl.style.opacity = '0'; }, 1600);
+}
+function updatePanelState(){ syncTextControls(); syncImgControls(); }
+
+window.addEventListener('keydown', function(e){
+  var typing = document.activeElement === textInput;
+  var k = e.key;
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'y'){ e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 's'){ e.preventDefault(); exportImage(1,false); return; }
+  if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'd'){ e.preventDefault(); dupBtn.click(); return; }
+  if (k === 'Escape'){ selId = null; render(); return; }
+  if (typing) return;
+  var it = sel();
+  if (!it) return;
+  if (k === 'Delete' || k === 'Backspace'){ e.preventDefault(); delBtn.click(); return; }
+  var step = e.shiftKey ? 10 : 1;
+  if (k === 'ArrowLeft'){ it.x -= step; render(); e.preventDefault(); }
+  else if (k === 'ArrowRight'){ it.x += step; render(); e.preventDefault(); }
+  else if (k === 'ArrowUp'){ it.y -= step; render(); e.preventDefault(); }
+  else if (k === 'ArrowDown'){ it.y += step; render(); e.preventDefault(); }
+});
+
+// ============ GO ============
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ render(); });
+if (document.fonts) document.fonts.onloadingdone = function(){ render(); };
+syncBgControls();
+buildLayers();
+fitCanvas();
+updateHistoryButtons();
+addText('YOUR HEADLINE');   // sensible starting point; undo removes it
+textInput.blur();
+})();
+</script>
+</body>
+</html>
