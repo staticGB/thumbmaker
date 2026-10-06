@@ -48,6 +48,12 @@ select{cursor:pointer}
 #drop{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0e0e16cc;color:#ff6b6b;font-weight:700;font-size:18px;border:2px dashed #ff6b6b88;z-index:5}
 #tip{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:11px;color:#6b7280;pointer-events:none}
 #cutNote{font-size:11px;color:#8a8fa3;line-height:1.35;margin-top:5px}
+#shapeGrid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+#shapeGrid button{height:34px;background:#22223a;border:1px solid #ffffff14;border-radius:7px;padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#shapeGrid button:hover{border-color:#4ade80;background:#2b2b45}
+#shapeGrid svg{width:26px;height:26px;display:block}
+#shapeGrid svg .f{fill:#cbd5e1}
+#shapeGrid svg .s{fill:none;stroke:#cbd5e1;stroke-width:14;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:820px){
   #main{flex-direction:column}
   #panel{width:100%;flex:0 0 auto;max-height:44vh;border-left:none;border-top:1px solid #ffffff14}
@@ -135,6 +141,25 @@ select{cursor:pointer}
       <div class="row" style="margin-top:8px">
         <button class="btn" id="dupBtn">Duplicate</button>
         <button class="btn" id="delBtn">Delete</button>
+      </div>
+    </section>
+
+    <section class="sec" id="shapeSec">
+      <h3>Shapes <span id="shapeNote" style="color:#4b5468">click to add</span></h3>
+      <div id="shapeGrid"></div>
+      <div class="row" style="margin-top:8px">
+        <label class="ctl">Fill <input type="color" id="shFill" value="#ffd400"></label>
+        <label class="ctl">Outline <input type="color" id="shStroke" value="#0b2400"></label>
+      </div>
+      <label class="ctl">Outline <input type="range" id="shStrokeW" min="0" max="60" value="0"><span class="v" id="shStrokeWVal">0</span></label>
+      <label class="ctl">Width <input type="range" id="shW" min="10" max="1280" value="300"><span class="v" id="shWVal">300</span></label>
+      <label class="ctl">Height <input type="range" id="shH" min="10" max="720" value="200"><span class="v" id="shHVal">200</span></label>
+      <label class="ctl">Rounding <input type="range" id="shR" min="0" max="150" value="0"><span class="v" id="shRVal">0</span></label>
+      <label class="ctl">Angle <input type="range" id="shA" min="-180" max="180" value="0"><span class="v" id="shAVal">0</span></label>
+      <label class="ctl">Opacity <input type="range" id="shO" min="10" max="100" value="100"><span class="v" id="shOVal">100</span></label>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="shDup">Duplicate</button>
+        <button class="btn" id="shDel">Delete</button>
       </div>
     </section>
 
@@ -307,6 +332,75 @@ cv.addEventListener('wheel', function(e){
   wheelTimer = setTimeout(function(){ snap(); }, 400);
 }, { passive: false });
 
+// ============ SHAPE LIBRARY ============
+// every shape is one SVG path in a 100x100 box, so the same definition draws the
+// canvas shape and the little preview button in the panel
+function starPath(spikes, ro, ri){
+  var p = '';
+  for (var i=0;i<spikes*2;i++){
+    var r = (i % 2 === 0) ? ro : ri;
+    var a = -Math.PI/2 + i*Math.PI/spikes;
+    p += (i ? 'L' : 'M') + (50 + Math.cos(a)*r).toFixed(2) + ' ' + (50 + Math.sin(a)*r).toFixed(2) + ' ';
+  }
+  return p + 'Z';
+}
+var SHAPES = [
+  { id:'rect',   label:'Rectangle',  kind:'rect', w:320, h:200, radius:0 },
+  { id:'round',  label:'Rounded box',kind:'rect', w:320, h:200, radius:32 },
+  { id:'circle', label:'Circle',     w:260, h:260, d:'M50 2 A48 48 0 1 0 50 98 A48 48 0 1 0 50 2 Z' },
+  { id:'tri',    label:'Triangle',   w:270, h:240, d:'M50 5 L96 94 L4 94 Z' },
+  { id:'diamond',label:'Diamond',    w:250, h:250, d:'M50 3 L97 50 L50 97 L3 50 Z' },
+  { id:'star',   label:'Star',       w:250, h:250, d:starPath(5, 48, 19) },
+  { id:'burst',  label:'Starburst',  w:290, h:290, d:starPath(14, 49, 33) },
+  { id:'arrow',  label:'Arrow',      w:390, h:180, d:'M2 36 H62 V8 L98 50 L62 92 V64 H2 Z' },
+  { id:'chevron',label:'Chevron',    w:220, h:220, d:'M22 8 L72 50 L22 92', strokeOnly:true, sw:24 },
+  { id:'bubble', label:'Speech box', w:430, h:280, d:'M12 4 H88 A10 10 0 0 1 98 14 V64 A10 10 0 0 1 88 74 H44 L22 96 V74 H12 A10 10 0 0 1 2 64 V14 A10 10 0 0 1 12 4 Z' },
+  { id:'bar',    label:'Bar',        w:520, h:26,  d:'M3 50 H97', strokeOnly:true, sw:26 },
+  { id:'tick',   label:'Tick',       w:230, h:230, d:'M10 52 L36 80 L90 16', strokeOnly:true, sw:22 },
+  { id:'cross',  label:'Cross',      w:230, h:230, d:'M18 18 L82 82 M82 18 L18 82', strokeOnly:true, sw:20 },
+  { id:'plus',   label:'Plus',       w:230, h:230, d:'M50 8 V92 M8 50 H92', strokeOnly:true, sw:20 },
+  { id:'heart',  label:'Heart',      w:250, h:240, d:'M50 92 C12 64 4 44 4 32 C4 15 16 4 31 4 C41 4 47 10 50 17 C53 10 59 4 69 4 C84 4 96 15 96 32 C96 44 88 64 50 92 Z' },
+  { id:'bolt',   label:'Lightning',  w:200, h:300, d:'M58 2 L16 56 H45 L38 98 L84 42 H55 Z' }
+];
+function shapeDef(kind){
+  for (var i=0;i<SHAPES.length;i++){ if (SHAPES[i].id === kind || SHAPES[i].kind === kind) return SHAPES[i]; }
+  return null;
+}
+function drawShape(c, it){
+  var def = shapeDef(it.kind);
+  var p = null;
+  if (def && def.kind === 'rect'){
+    p = new Path2D();
+    var rr = Math.max(0, Math.min(it.radius || 0, Math.min(it.w, it.h)/2));
+    if (rr > 0 && p.roundRect) p.roundRect(-it.w/2, -it.h/2, it.w, it.h, [rr]);
+    else p.rect(-it.w/2, -it.h/2, it.w, it.h);
+  } else if (def && def.d){
+    p = new Path2D();
+    var ok = false;
+    try {
+      if (typeof p.addPath === 'function' && typeof DOMMatrix === 'function'){
+        p.addPath(new Path2D(def.d), new DOMMatrix().translate(-it.w/2, -it.h/2).scale(it.w/100, it.h/100));
+        ok = true;
+      }
+    } catch (e) { ok = false; }
+    if (!ok){
+      c.save();
+      c.translate(-it.w/2, -it.h/2);
+      c.scale(it.w/100, it.h/100);
+      var sp = new Path2D(def.d);
+      if (it.fillCol){ c.fillStyle = it.fillCol; c.fill(sp); }
+      if (it.strokeW > 0 && it.strokeCol){ c.strokeStyle = it.strokeCol; c.lineWidth = it.strokeW * 100 / ((it.w + it.h)/2); c.lineJoin = 'round'; c.lineCap = 'round'; c.stroke(sp); }
+      c.restore();
+      return;
+    }
+  }
+  if (!p) return;
+  if (it.fillCol){ c.fillStyle = it.fillCol; c.fill(p); }
+  if (it.strokeW > 0 && it.strokeCol){
+    c.strokeStyle = it.strokeCol; c.lineWidth = it.strokeW; c.lineJoin = 'round'; c.lineCap = 'round'; c.stroke(p);
+  }
+}
+
 function drawItem(c, it){
   c.save();
   c.globalAlpha = (it.opacity == null ? 1 : it.opacity/100);
@@ -359,6 +453,8 @@ function drawItem(c, it){
       c.fillText(lines[i], 0, y);
       c.restore();
     }
+  } else if (it.type === 'shape'){
+    drawShape(c, it);
   } else if (it.type === 'img'){
     var img = images[it.imgId];
     if (img){
@@ -403,6 +499,7 @@ function itemBox(c, it){
     var ox = (it.align === 'left') ? w/2 : (it.align === 'right' ? -w/2 : 0);
     return { w:w, h:h, cx: it.x + ox, cy: it.y };
   }
+  if (it.type === 'shape') return { w: it.w, h: it.h, cx: it.x, cy: it.y };
   var img = images[it.imgId];
   var iw = img ? img.w * it.scale : 10, ih = img ? img.h * it.scale : 10;
   return { w:iw, h:ih, cx: it.x, cy: it.y };
@@ -482,6 +579,15 @@ cv.addEventListener('pointerdown', function(e){
     snap();
     drag = { mode: mode, it: s, start: p, x0: s.x, y0: s.y, size0: s.size, scale0: s.scale,
              angle0: s.angle || 0, d0: Math.max(1, dist(p, itemBox(ctx, s))) , box: itemBox(ctx, s) };
+    if (s.type === 'shape' && mode !== 'rotate'){
+      // remember the corner that must stay put while the opposite one is dragged
+      var hx = (mode === 'ne' || mode === 'se') ? 1 : -1;
+      var hy = (mode === 'sw' || mode === 'se') ? 1 : -1;
+      var ag = (s.angle || 0) * Math.PI/180;
+      var axl = -hx * s.w/2, ayl = -hy * s.h/2;
+      drag.hx = hx; drag.hy = hy;
+      drag.A = { x: s.x + axl*Math.cos(ag) - ayl*Math.sin(ag), y: s.y + axl*Math.sin(ag) + ayl*Math.cos(ag) };
+    }
     cv.setPointerCapture(e.pointerId);
     return;
   }
@@ -525,6 +631,18 @@ cv.addEventListener('pointermove', function(e){
   } else if (drag.mode === 'rotate'){
     it.angle = Math.round(Math.atan2(p.y - itemBox(ctx,it).cy, p.x - itemBox(ctx,it).cx) * 180/Math.PI + 90);
     if (e.shiftKey) it.angle = Math.round(it.angle/15)*15;
+  } else if (it.type === 'shape' && drag.A){
+    // free resize: width and height follow the pointer, the far corner stays anchored
+    var inv = -(it.angle || 0) * Math.PI/180;
+    var dxp = p.x - drag.A.x, dyp = p.y - drag.A.y;
+    var lx = dxp*Math.cos(inv) - dyp*Math.sin(inv);
+    var ly = dxp*Math.sin(inv) + dyp*Math.cos(inv);
+    it.w = Math.max(12, Math.abs(lx));
+    it.h = Math.max(12, Math.abs(ly));
+    var ag2 = (it.angle || 0) * Math.PI/180;
+    var cxl = drag.hx * it.w/2, cyl = drag.hy * it.h/2;
+    it.x = drag.A.x + (cxl*Math.cos(ag2) - cyl*Math.sin(ag2));
+    it.y = drag.A.y + (cxl*Math.sin(ag2) + cyl*Math.cos(ag2));
   } else {
     var b = itemBox(ctx, it);
     var f = dist(p, b) / drag.d0;
@@ -648,6 +766,74 @@ function addText(text, placeholder){
 }
 $('addTextBtn').addEventListener('click', function(){ addText(''); });
 
+// ---- shapes: library buttons, adding, and the controls for the selected one ----
+var shapeSec = $('shapeSec'), shapeGrid = $('shapeGrid');
+function addShape(id){
+  var def = null;
+  for (var i=0;i<SHAPES.length;i++){ if (SHAPES[i].id === id) def = SHAPES[i]; }
+  if (!def) return;
+  snap();
+  var it = {
+    id: newId(), type:'shape', kind: def.kind || def.id, label: def.label,
+    w: def.w, h: def.h, radius: def.radius || 0,
+    fillCol: def.strokeOnly ? null : '#ffd400',
+    strokeCol: def.strokeOnly ? '#ffd400' : '#0b2400',
+    strokeW: def.strokeOnly ? (def.sw || 20) : 0,
+    angle: 0, opacity: 100, x: W/2, y: H/2
+  };
+  items.push(it); selId = it.id;
+  syncShapeControls(); buildLayers(); render();
+  toast(def.label + ' added - drag it, or use the corner handle');
+}
+(function buildShapeGrid(){
+  SHAPES.forEach(function(s){
+    var b = document.createElement('button');
+    b.title = s.label;
+    var inner = (s.kind === 'rect')
+      ? '<rect class="f" x="8" y="16" width="84" height="68" rx="' + (s.radius ? 14 : 0) + '"/>'
+      : '<path class="' + (s.strokeOnly ? 's' : 'f') + '" d="' + s.d + '"/>';
+    b.innerHTML = '<svg viewBox="0 0 100 100">' + inner + '</svg>';
+    b.addEventListener('click', function(){ addShape(s.id); });
+    shapeGrid.appendChild(b);
+  });
+})();
+var shFill = $('shFill'), shStroke = $('shStroke'), shStrokeW = $('shStrokeW'), shStrokeWVal = $('shStrokeWVal');
+var shW = $('shW'), shWVal = $('shWVal'), shH = $('shH'), shHVal = $('shHVal');
+var shR = $('shR'), shRVal = $('shRVal'), shA = $('shA'), shAVal = $('shAVal');
+var shO = $('shO'), shOVal = $('shOVal'), shapeNote = $('shapeNote');
+function syncShapeControls(){
+  var it = sel();
+  var on = !!(it && it.type === 'shape');
+  shapeSec.classList.toggle('dim', !on);
+  shapeNote.textContent = on ? 'selected' : 'click to add';
+  if (!on) return;
+  shFill.value = it.fillCol || '#ffd400';
+  shStroke.value = it.strokeCol || '#ffd400';
+  shStrokeW.value = it.strokeW || 0; shStrokeWVal.textContent = it.strokeW || 0;
+  shW.value = Math.round(it.w); shWVal.textContent = Math.round(it.w);
+  shH.value = Math.round(it.h); shHVal.textContent = Math.round(it.h);
+  shR.value = it.radius || 0; shRVal.textContent = it.radius || 0;
+  shA.value = it.angle || 0; shAVal.textContent = Math.round(it.angle || 0) + '\u00b0';
+  shO.value = (it.opacity == null ? 100 : it.opacity); shOVal.textContent = (it.opacity == null ? 100 : it.opacity);
+}
+[[shW,'w','shWVal'],[shH,'h','shHVal'],[shStrokeW,'strokeW','shStrokeWVal'],[shR,'radius','shRVal'],
+ [shA,'angle','shAVal'],[shO,'opacity','shOVal']].forEach(function(cfg){
+  var el = $(cfg[0].id), field = cfg[1], out = $(cfg[2]);
+  el.addEventListener('input', function(){
+    var it = sel(); if (!it || it.type !== 'shape') return;
+    it[field] = parseFloat(el.value);
+    out.textContent = (field === 'angle') ? Math.round(it[field]) + '\u00b0' : Math.round(it[field]);
+    render();
+  });
+  el.addEventListener('change', function(){ snap(); });
+});
+shFill.addEventListener('input', function(){ var it = sel(); if (it && it.type === 'shape'){ it.fillCol = shFill.value; render(); } });
+shFill.addEventListener('change', function(){ snap(); });
+shStroke.addEventListener('input', function(){ var it = sel(); if (it && it.type === 'shape'){ it.strokeCol = shStroke.value; render(); } });
+shStroke.addEventListener('change', function(){ snap(); });
+$('shDup').addEventListener('click', function(){ dupBtn.click(); });
+$('shDel').addEventListener('click', function(){ delBtn.click(); });
+
 function syncTextControls(){
   var it = sel();
   textSec.classList.toggle('dim', !(it && it.type === 'text'));
@@ -732,6 +918,7 @@ imgOpacity.addEventListener('change', function(){ snap(); });
 // ============ LAYERS ============
 function label(it){
   if (it.type === 'text') return (it.text || '(empty)').replace(/\n/g,' ').slice(0,18) || '(empty)';
+  if (it.type === 'shape'){ var sd = shapeDef(it.kind); return (sd && sd.label) || 'shape'; }
   return 'image';
 }
 function buildLayers(){
@@ -744,7 +931,7 @@ function buildLayers(){
       row.className = 'layer' + (it.id === selId ? ' sel' : '');
       var nm = document.createElement('span');
       nm.className = 'nm';
-      nm.textContent = (it.type === 'text' ? 'T ' : 'IMG ') + label(it);
+      nm.textContent = (it.type === 'text' ? 'T ' : (it.type === 'shape' ? 'SHP ' : 'IMG ')) + label(it);
       nm.addEventListener('click', function(){ selId = it.id; syncAll(); render(); });
       row.appendChild(nm);
       var up = document.createElement('button'); up.textContent = '\u25b2'; up.title = 'Bring forward';
@@ -784,7 +971,7 @@ function syncBgControls(){
   bgFit.value = bg.fit; bgZoom.value = bg.zoom; bgZoomVal.textContent = bg.zoom;
   scrim.value = bg.scrim; scrimVal.textContent = bg.scrim; bgColor.value = bg.color;
 }
-function syncAll(){ syncTextControls(); syncImgControls(); buildLayers(); }
+function syncAll(){ syncTextControls(); syncShapeControls(); syncImgControls(); buildLayers(); }
 
 // ============ TEMPLATES ============
 document.querySelectorAll('[data-tpl]').forEach(function(b){
@@ -992,7 +1179,7 @@ function toast(msg){
   clearTimeout(toastEl._t);
   toastEl._t = setTimeout(function(){ toastEl.style.opacity = '0'; }, 1600);
 }
-function updatePanelState(){ syncTextControls(); syncImgControls(); }
+function updatePanelState(){ syncTextControls(); syncShapeControls(); syncImgControls(); }
 
 window.addEventListener('keydown', function(e){
   var typing = document.activeElement === textInput;
